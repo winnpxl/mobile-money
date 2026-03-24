@@ -27,6 +27,7 @@ import {
 
 import { register } from "./utils/metrics";
 import { metricsMiddleware } from "./middleware/metrics";
+import { startApolloServer } from "./graphql/server";
 
 dotenv.config();
 
@@ -41,7 +42,13 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(metricsMiddleware); // Register metrics middleware early
-app.use(helmet());
+app.use(
+  helmet(
+    process.env.NODE_ENV === "production"
+      ? {}
+      : { contentSecurityPolicy: false },
+  ),
+);
 app.use(cors());
 app.use(express.json());
 app.use(limiter);
@@ -119,24 +126,33 @@ app.get("/health/queue", getQueueHealth);
 app.post("/admin/queues/pause", pauseQueueEndpoint);
 app.post("/admin/queues/resume", resumeQueueEndpoint);
 
-// Timeout error handler (must be before general error handler)
-app.use(timeoutErrorHandler);
-app.use(errorHandler);
+async function startHttp(): Promise<void> {
+  await startApolloServer(app);
 
-// Init Redis
-connectRedis()
-  .then(() => {
-    console.log("Redis initialized");
-  })
-  .catch((err) => {
-    console.error("Failed to connect to Redis:", err);
-    console.warn("Distributed locks will not be available");
+  // Timeout error handler (must be before general error handler)
+  app.use(timeoutErrorHandler);
+  app.use(errorHandler);
+
+  // Init Redis
+  connectRedis()
+    .then(() => {
+      console.log("Redis initialized");
+    })
+    .catch((err) => {
+      console.error("Failed to connect to Redis:", err);
+      console.warn("Distributed locks will not be available");
+    });
+
+  // Initialize queue dashboard
+  const queueRouter = createQueueDashboard();
+  app.use("/admin/queues", queueRouter);
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
+}
 
-// Initialize queue dashboard
-const queueRouter = createQueueDashboard();
-app.use("/admin/queues", queueRouter);
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+startHttp().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
