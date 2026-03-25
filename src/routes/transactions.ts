@@ -10,18 +10,22 @@ import { TimeoutPresets, haltOnTimedout } from "../middleware/timeout";
 
 export const transactionRoutes = Router();
 
-// Deposit and withdraw operations may take longer due to external API calls
+// Deposit route
 transactionRoutes.post(
   "/deposit",
   TimeoutPresets.long,
   haltOnTimedout,
-  depositHandler,
+  validateTransaction,
+  depositHandler
 );
+
+// Withdraw route
 transactionRoutes.post(
   "/withdraw",
   TimeoutPresets.long,
   haltOnTimedout,
-  withdrawHandler,
+  validateTransaction,
+  withdrawHandler
 );
 
 // Quick read operation
