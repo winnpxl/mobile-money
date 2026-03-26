@@ -68,6 +68,7 @@ transactionRoutes.post(
 
 transactionRoutes.patch(
   "/:id/notes",
+  authenticateToken,
   TimeoutPresets.quick,
   haltOnTimedout,
   updateNotesHandler,
