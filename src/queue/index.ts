@@ -47,3 +47,4 @@ export {
   resumeQueueEndpoint,
 } from "./health";
 export { queueOptions } from "./config";
+export { deadLetterQueue, DLQ_NAME, capturePersistentFailure } from "./dlq";
