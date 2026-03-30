@@ -101,7 +101,7 @@ authRoutes.post('/refresh', async (req: Request, res: Response) => {
  *
  * List all active refresh token
  */
-authRoutes.get("/active-tokens", authenticateToken, tokenController.findAll);
+authRoutes.get("/active-tokens/:family_id", authenticateToken, tokenController.findAll);
 
 /**
  * DELETE /api/auth/tokens
