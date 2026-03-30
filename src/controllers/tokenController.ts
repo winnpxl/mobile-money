@@ -10,7 +10,7 @@ const refreshTokenFamilyModel = new RefreshTokenFamilyModel();
 export const tokenController = {
   // List all active refresh tokens for current user
   findAll: async (req: Request, res: Response) => {
-    const userId = (req as any).user.id || (req as any).user_id;
+    const userId = (req as any).jwtUser.userId;
     const { family_id } = req.params;
 
     try {
@@ -32,7 +32,7 @@ export const tokenController = {
   // Revoke specific token
   revoke: async (req: Request, res: Response) => {
     const { familyId } = req.params;
-    const userId = (req as any).user.id || (req as any).user_id;
+    const userId = (req as any).jwtUser.userId;
 
     try {
       const { data } = await refreshTokenFamilyModel.revokeFamily(
@@ -54,7 +54,7 @@ export const tokenController = {
   },
   // Revoke all active tokens
   revokeAll: async (req: Request, res: Response) => {
-    const userId = (req as any).user.id || (req as any).user_id;
+    const userId = (req as any).jwtUser.userId;
 
     try {
       const { data } = await refreshTokenFamilyModel.revokeAll(userId);
