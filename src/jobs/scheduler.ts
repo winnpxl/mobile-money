@@ -8,7 +8,7 @@ import { runSanctionSyncJob } from "./sanctionSyncJob";
 import { MonitoringService } from "../services/monitoringService";
 import { createPagerDutyService } from "../services/pagerDutyService";
 import { runProviderBalanceAlertJob } from "./balances";
-import { runStaleTransactionWatchdog } from "./staleTransactionWatchdog";
+import { runDailyPnlJob } from "./pnl";
 
 interface JobConfig {
   name: string;
@@ -48,10 +48,14 @@ const JOBS: JobConfig[] = [
     handler: runProviderBalanceAlertJob,
   },
   {
-    name: "sanction-sync",
-    // Daily at midnight - syncs global sanction lists for AML screening
-    schedule: process.env.SANCTION_SYNC_CRON || "0 0 * * *",
-    handler: runSanctionSyncJob,
+    name: "daily-pnl",
+    // Daily at 01:00 AM - aggregates fees collected vs provider costs for yesterday
+    schedule: process.env.DAILY_PNL_CRON || "0 1 * * *",
+    handler: () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      return runDailyPnlJob(yesterday.toISOString().slice(0, 10)).then(() => undefined);
+    },
   },
 ];
 
