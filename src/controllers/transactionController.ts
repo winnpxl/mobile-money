@@ -10,7 +10,10 @@ import {
 import { lockManager, LockKeys } from "../utils/lock";
 import { TransactionLimitService } from "../services/transactionLimit/transactionLimitService";
 import { KYCService } from "../services/kyc/kycService";
-import { MobileMoneyProvider, validateProviderLimits } from "../config/providers";
+import {
+  MobileMoneyProvider,
+  validateProviderLimits,
+} from "../config/providers";
 import type { TransactionJobData } from "../queue/transactionQueue";
 import { amlService } from "../services/aml";
 import {
@@ -21,6 +24,7 @@ import {
   TransactionResponse,
 } from "../types/api";
 
+import { validatePhoneProviderMatch } from "../utils/phoneUtils";
 
 const IDEMPOTENCY_TTL_HOURS = Number(
   process.env.IDEMPOTENCY_KEY_TTL_HOURS || 24,
@@ -66,7 +70,7 @@ export const transactionSchema = z.object({
     .string()
     .regex(/^\+?\d{10,15}$/, { message: "Invalid phone number format" }),
   provider: z.enum(["mtn", "airtel", "orange"], {
-    message: "Provider must be one of: mtn, airtel, orange",
+    message: "Provider must be mtn, airtel, or orange",
   }),
   stellarAddress: z
     .string()
@@ -145,7 +149,9 @@ export const getTransactionHistoryHandler = async (
       minAmount: minAmount ? parseFloat(minAmount as string) : undefined,
       maxAmount: maxAmount ? parseFloat(maxAmount as string) : undefined,
       provider: provider as string | undefined,
-      tags: tags ? (tags as string).split(",").map((t) => t.trim().toLowerCase()) : undefined,
+      tags: tags
+        ? (tags as string).split(",").map((t) => t.trim().toLowerCase())
+        : undefined,
     };
 
     // Database Queries
@@ -224,7 +230,9 @@ function buildTransactionResponse(
   };
 }
 
-async function monitorTransactionForAML(transaction: Transaction): Promise<void> {
+async function monitorTransactionForAML(
+  transaction: Transaction,
+): Promise<void> {
   if (!transaction.userId) return;
 
   const amount = Number(transaction.amount);
@@ -305,6 +313,15 @@ async function processTransactionRequest(
       return res
         .status(400)
         .json({ error: "Amount must be a positive number" });
+    }
+
+    // Recipient Mobile Network Validation
+    const networkMatch = validatePhoneProviderMatch(phoneNumber, provider);
+    if (!networkMatch.valid) {
+      return res.status(400).json({
+        error: networkMatch.error,
+        code: "INVALID_NETWORK_FOR_PROVIDER",
+      });
     }
 
     const idempotencyKey = getIdempotencyKey(req);
@@ -695,7 +712,10 @@ export const listTransactionsHandler = async (req: Request, res: Response) => {
         currentPage: Math.floor(filters.offset / filters.limit) + 1,
       },
       filters: {
-        statuses: filters.statuses.length > 0 ? filters.statuses : Object.values(TransactionStatus),
+        statuses:
+          filters.statuses.length > 0
+            ? filters.statuses
+            : Object.values(TransactionStatus),
       },
     });
   } catch (err) {
@@ -729,7 +749,11 @@ export const listAmlAlertsHandler = async (req: Request, res: Response) => {
     }
 
     const alerts = amlService.getAlerts({
-      status: statusFilter as "pending_review" | "reviewed" | "dismissed" | undefined,
+      status: statusFilter as
+        | "pending_review"
+        | "reviewed"
+        | "dismissed"
+        | undefined,
       userId: typeof userId === "string" ? userId : undefined,
       startDate: parsedStart,
       endDate: parsedEnd,
@@ -738,7 +762,8 @@ export const listAmlAlertsHandler = async (req: Request, res: Response) => {
     return res.json({
       data: alerts,
       total: alerts.length,
-      pendingReview: alerts.filter((a: any) => a.status === "pending_review").length,
+      pendingReview: alerts.filter((a: any) => a.status === "pending_review")
+        .length,
     });
   } catch (error) {
     console.error("Failed to list AML alerts:", error);
