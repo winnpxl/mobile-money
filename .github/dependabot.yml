@@ -15,6 +15,7 @@ updates:
     labels:
       - "dependencies"
       - "npm"
+      - "security" # Added to help route security patches
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -33,6 +34,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # NEW: Group security updates to reduce noise (Issue #558)
+      npm-security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/bridge-starter-node"
@@ -83,6 +89,7 @@ updates:
     labels:
       - "dependencies"
       - "rust"
+      - "security"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -95,6 +102,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # NEW: Group security updates for Rust
+      cargo-security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -111,6 +123,7 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+      - "security"
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -120,5 +133,10 @@ updates:
         patterns:
           - "*"
       github-actions:
+        patterns:
+          - "*"
+      # NEW: Group security updates for Actions
+      actions-security-updates:
+        applies-to: "security-updates"
         patterns:
           - "*"

@@ -1,4 +1,8 @@
+import path from "path";
+// Serve SEP-1 stellar.toml at /.well-known/stellar.toml
+app.use("/.well-known", express.static(path.join(__dirname, "../public/.well-known")));
 import "./tracer";
+
 import express, { NextFunction, Request, Response } from "express";
 import { IncomingMessage, Server } from "http";
 // replaced express-rate-limit with our redis-backed middleware
@@ -34,6 +38,7 @@ import { reportsRoutes } from "./routes/reports";
 import { statementsRoutes } from "./routes/statements";
 import feesRoutes from "./routes/fees";
 import stellarRoutes from "./routes/stellar";
+import htlcRoutes from "./routes/htlc";
 import { createKYCRoutes } from "./routes/kycRoutes";
 import { vaultRoutes } from "./routes/vaults";
 import { adminRoutes } from "./routes/admin";
@@ -66,6 +71,7 @@ import { validateStellarNetwork, logStellarNetwork } from "./config/stellar";
 import { sessionAnomalyLogger } from "./services/logger";
 import { HealthCheckResponse, ReadinessCheckResponse } from "./types/api";
 import { privacyRoutes } from "./routes/privacy";
+import { developerDashboardRoutes } from "./routes/developerDashboard";
 import { travelRuleRoutes } from "./routes/travelRule";
 import sep31Router from "./stellar/sep31";
 import sep24Router from "./stellar/sep24";
@@ -73,12 +79,13 @@ import sep38Router from "./stellar/sep38";
 import { createSep12Router } from "./stellar/sep12";
 import { createSep10Router } from "./stellar/sep10";
 import tomlRouter from "./routes/toml";
-import { startJobs } from "./jobs/scheduler";
-import { startApolloServer } from "./graphql/server";
+import feesRouter from "./routes/fees";
+import feeStrategiesRouter from "./routes/feeStrategies";
 
 // 1. Import Sentry Middleware
 import { initSentry, sentryBreadcrumbMiddleware } from "./middleware/sentry";
 import { WebSocketManager } from "./websocket";
+import { layeredCache } from "./services/layeredCache";
 
 dotenv.config();
 
@@ -352,13 +359,12 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/fees", feesRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/kyc", createKYCRoutes(pool));
-app.use("/api/audit", auditRoutes);
-
-app.use("/api/accounting", accountingRoutes);
-app.use("/api/stellar", stellarRoutes);
+app.use("/api/fees", feesRouter);
+app.use("/api/fee-strategies", feeStrategiesRouter);
 
 // GDPR
 app.use("/api/gdpr", privacyRoutes);
+app.use("/api/developer", developerDashboardRoutes);
 app.use("/api/admin", requireAuth, adminRoutes);
 app.use("/api/admin/kyc-upgrades", requireAuth, kycTierUpgradeRoutes);
 app.use("/sep10", createSep10Router());
@@ -495,14 +501,21 @@ async function initializeRuntime(): Promise<void> {
 
   const { getQueueHealth, pauseQueueEndpoint, resumeQueueEndpoint } =
     await import("./queue/health");
+  const { queueDepthHandler, queueDepthPrometheusHandler } =
+    await import("./queue/queueDepthMetrics");
 
   app.get("/health/queue", getQueueHealth);
+  app.get("/health/queue/depth", queueDepthHandler);
+  app.get("/metrics/queue_depth", queueDepthPrometheusHandler);
   app.post("/admin/queues/pause", pauseQueueEndpoint);
   app.post("/admin/queues/resume", resumeQueueEndpoint);
 
   try {
     await connectRedis();
     console.log("Redis initialized");
+
+    await layeredCache.init();
+    console.log("Layered cache (L1/L2) initialized");
 
     const { startProviderBalanceAlertWorker, scheduleProviderBalanceAlertJob } =
       await import("./queue");

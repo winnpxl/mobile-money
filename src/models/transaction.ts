@@ -302,6 +302,7 @@ export class TransactionModel {
       maxAmount?: number;
       provider?: string;
       providerReference?: string;
+      referenceNumber?: string;
       tags?: string[];
     },
   ) {
@@ -338,6 +339,10 @@ export class TransactionModel {
       query += " AND provider_reference = $" + p++;
       params.push(filters.providerReference);
     }
+    if (filters?.referenceNumber) {
+      query += " AND reference_number = $" + p++;
+      params.push(filters.referenceNumber);
+    }
     if (filters?.tags && filters.tags.length > 0) {
       query += " AND tags @> $" + p++ + "::text[]";
       params.push(filters.tags);
@@ -361,6 +366,7 @@ export class TransactionModel {
       maxAmount?: number;
       provider?: string;
       providerReference?: string;
+      referenceNumber?: string;
       tags?: string[];
     },
   ): Promise<number> {
@@ -393,6 +399,10 @@ export class TransactionModel {
     if (filters?.providerReference) {
       query += " AND provider_reference = $" + p++;
       params.push(filters.providerReference);
+    }
+    if (filters?.referenceNumber) {
+      query += " AND reference_number = $" + p++;
+      params.push(filters.referenceNumber);
     }
     if (filters?.tags && filters.tags.length > 0) {
       query += " AND tags @> $" + p++ + "::text[]";
